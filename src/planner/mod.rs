@@ -1,4 +1,5 @@
 use crate::df::state::FortressState;
+use crate::memory::StrategicContext;
 
 #[derive(Debug, Clone)]
 pub enum Directive {
@@ -23,7 +24,17 @@ impl Planner {
         Self
     }
 
-    pub fn plan(&self, state: &FortressState) -> Plan {
+    pub fn plan(&self, state: &FortressState, context: &StrategicContext) -> Plan {
+        if context.repeated_threats >= 2 {
+            return Plan {
+                directive: Directive::PrepareDefense,
+                reason: format!(
+                    "Memory reports repeated hostile pressure across {} observed cycles.",
+                    context.cycles_seen
+                ),
+            };
+        }
+
         if !state.threats.is_empty() {
             return Plan {
                 directive: Directive::PrepareDefense,
@@ -55,7 +66,7 @@ impl Planner {
         if state.cycle > 3 {
             return Plan {
                 directive: Directive::Observe,
-                reason: "No urgent fortress pressure detected; continue observation.".to_string(),
+                reason: context.recent_summary.clone(),
             };
         }
 

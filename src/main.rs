@@ -5,6 +5,7 @@ mod core;
 mod df;
 mod dfhack;
 mod executor;
+mod memory;
 mod narrator;
 mod observe;
 mod planner;

@@ -6,6 +6,7 @@ use crate::chronicle::Chronicle;
 use crate::config::{EngineConfig, ObserverMode};
 use crate::dfhack::DfHackBridge;
 use crate::executor::Executor;
+use crate::memory::MemoryCore;
 use crate::narrator::Narrator;
 use crate::observe::{DfHackObserver, MockObserver, Observer};
 use crate::planner::Planner;
@@ -18,6 +19,7 @@ pub struct ObsidianEngine {
     narrator: Narrator,
     dfhack: DfHackBridge,
     observer: Box<dyn Observer>,
+    memory: MemoryCore,
 }
 
 impl ObsidianEngine {
@@ -36,6 +38,7 @@ impl ObsidianEngine {
             narrator: Narrator::new(),
             dfhack: DfHackBridge::new(&config.dfhack_command, config.dry_run),
             observer,
+            memory: MemoryCore::new(),
             config,
         })
     }
@@ -83,8 +86,9 @@ impl ObsidianEngine {
 
     fn run_cycle(&mut self, cycle: u64) -> Result<()> {
         let snapshot = self.observer.observe(cycle)?;
+        let context = self.memory.absorb(&snapshot);
         let state = &snapshot.state;
-        let plan = self.planner.plan(state);
+        let plan = self.planner.plan(state, &context);
         let intent = ActionIntent::from_directive(&plan.directive);
         let narration = self.narrator.describe(state, &plan);
 
@@ -96,6 +100,11 @@ impl ObsidianEngine {
         println!("Cycle: {}", snapshot.cycle);
         println!("Source: {}", snapshot.source.label());
         println!("Raw events: {:?}", snapshot.raw_events);
+
+        println!();
+        println!("STRATEGIC MEMORY:");
+        println!("{context:#?}");
+        println!("Memory line: {}", context.resource_line());
 
         println!();
         println!("FORTRESS STATE:");
@@ -116,6 +125,10 @@ impl ObsidianEngine {
         self.executor.execute(&intent, &self.dfhack)?;
         self.chronicle
             .record("observation", &format!("{snapshot:?}"))?;
+        self.chronicle
+            .record("strategic_context", &format!("{context:?}"))?;
+        self.chronicle
+            .record("resource_line", &context.resource_line())?;
         self.chronicle.record("directive", &format!("{plan:?}"))?;
         self.chronicle.record("action_intent", &format!("{intent:?}"))?;
         self.chronicle.record("narration", &narration)?;
