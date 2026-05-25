@@ -9,6 +9,7 @@ mod memory;
 mod narrator;
 mod observe;
 mod planner;
+mod policy;
 
 use anyhow::Result;
 use crate::core::engine::ObsidianEngine;

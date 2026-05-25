@@ -10,11 +10,13 @@ use crate::memory::MemoryCore;
 use crate::narrator::Narrator;
 use crate::observe::{DfHackObserver, MockObserver, Observer};
 use crate::planner::Planner;
+use crate::policy::{PolicyCore, PolicyDecision};
 
 pub struct ObsidianEngine {
     config: EngineConfig,
     chronicle: Chronicle,
     planner: Planner,
+    policy: PolicyCore,
     executor: Executor,
     narrator: Narrator,
     dfhack: DfHackBridge,
@@ -34,6 +36,7 @@ impl ObsidianEngine {
         Ok(Self {
             chronicle: Chronicle::new(&config.chronicle_path),
             planner: Planner::new(),
+            policy: PolicyCore::new(config.dry_run),
             executor: Executor::new(config.dry_run),
             narrator: Narrator::new(),
             dfhack: DfHackBridge::new(&config.dfhack_command, config.dry_run),
@@ -89,7 +92,19 @@ impl ObsidianEngine {
         let context = self.memory.absorb(&snapshot);
         let state = &snapshot.state;
         let plan = self.planner.plan(state, &context);
-        let intent = ActionIntent::from_directive(&plan.directive);
+        let proposed_intent = ActionIntent::from_directive(&plan.directive);
+
+        let policy_decision = self.policy.evaluate(&plan, &proposed_intent, &context);
+        let final_intent = match &policy_decision {
+            PolicyDecision::Approved => proposed_intent.clone(),
+            PolicyDecision::Blocked(_) => ActionIntent {
+                label: "blocked".to_string(),
+                dfhack_command: "ls".to_string(),
+                safety_note: "Policy blocked directive. Observation-only fallback.".to_string(),
+            },
+            PolicyDecision::Downgraded { replacement, .. } => replacement.clone(),
+        };
+
         let narration = self.narrator.describe(state, &plan);
 
         println!();
@@ -115,14 +130,27 @@ impl ObsidianEngine {
         println!("{plan:#?}");
 
         println!();
-        println!("ACTION INTENT:");
-        println!("{intent:#?}");
+        println!("PROPOSED ACTION INTENT:");
+        println!("{proposed_intent:#?}");
+
+        println!();
+        println!("POLICY DECISION:");
+        println!("{policy_decision:#?}");
+        match &policy_decision {
+            PolicyDecision::Blocked(reason) => println!("Policy block reason: {reason}"),
+            PolicyDecision::Downgraded { reason, .. } => println!("Policy downgrade reason: {reason}"),
+            PolicyDecision::Approved => {}
+        }
+
+        println!();
+        println!("FINAL ACTION INTENT:");
+        println!("{final_intent:#?}");
 
         println!();
         println!("CHRONICLE:");
         println!("{narration}");
 
-        self.executor.execute(&intent, &self.dfhack)?;
+        self.executor.execute(&final_intent, &self.dfhack)?;
         self.chronicle
             .record("observation", &format!("{snapshot:?}"))?;
         self.chronicle
@@ -130,7 +158,12 @@ impl ObsidianEngine {
         self.chronicle
             .record("resource_line", &context.resource_line())?;
         self.chronicle.record("directive", &format!("{plan:?}"))?;
-        self.chronicle.record("action_intent", &format!("{intent:?}"))?;
+        self.chronicle
+            .record("proposed_action_intent", &format!("{proposed_intent:?}"))?;
+        self.chronicle
+            .record("policy_decision", &format!("{policy_decision:?}"))?;
+        self.chronicle
+            .record("final_action_intent", &format!("{final_intent:?}"))?;
         self.chronicle.record("narration", &narration)?;
 
         Ok(())
