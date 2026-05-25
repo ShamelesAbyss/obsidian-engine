@@ -1,3 +1,4 @@
+mod actions;
 mod chronicle;
 mod config;
 mod core;

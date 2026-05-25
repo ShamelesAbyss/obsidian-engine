@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::{thread, time::Duration};
 
+use crate::actions::ActionIntent;
 use crate::chronicle::Chronicle;
 use crate::config::EngineConfig;
 use crate::df::state::FortressState;
@@ -74,8 +75,8 @@ impl ObsidianEngine {
     fn run_cycle(&mut self, cycle: u64) -> Result<()> {
         let state = FortressState::mock(&self.config.fortress_name, cycle);
         let plan = self.planner.plan(&state);
+        let intent = ActionIntent::from_directive(&plan.directive);
         let narration = self.narrator.describe(&state, &plan);
-        let probe = self.dfhack.run("ls")?;
 
         println!();
         println!("=== CYCLE {cycle} ===");
@@ -89,16 +90,16 @@ impl ObsidianEngine {
         println!("{plan:#?}");
 
         println!();
-        println!("DFHACK PROBE:");
-        println!("{}", probe.summary());
+        println!("ACTION INTENT:");
+        println!("{intent:#?}");
 
         println!();
         println!("CHRONICLE:");
         println!("{narration}");
 
-        self.executor.execute(&plan)?;
+        self.executor.execute(&intent, &self.dfhack)?;
         self.chronicle.record("directive", &format!("{plan:?}"))?;
-        self.chronicle.record("dfhack_probe", &probe.summary())?;
+        self.chronicle.record("action_intent", &format!("{intent:?}"))?;
         self.chronicle.record("narration", &narration)?;
 
         Ok(())
