@@ -4,10 +4,10 @@ use std::{thread, time::Duration};
 use crate::actions::ActionIntent;
 use crate::chronicle::Chronicle;
 use crate::config::EngineConfig;
-use crate::df::state::FortressState;
 use crate::dfhack::DfHackBridge;
 use crate::executor::Executor;
 use crate::narrator::Narrator;
+use crate::observe::{MockObserver, Observer};
 use crate::planner::Planner;
 
 pub struct ObsidianEngine {
@@ -17,11 +17,13 @@ pub struct ObsidianEngine {
     executor: Executor,
     narrator: Narrator,
     dfhack: DfHackBridge,
+    observer: Box<dyn Observer>,
 }
 
 impl ObsidianEngine {
     pub fn new(config_path: &str) -> Result<Self> {
         let config = EngineConfig::load(config_path)?;
+        let observer = Box::new(MockObserver::from_config(&config));
 
         Ok(Self {
             chronicle: Chronicle::new(&config.chronicle_path),
@@ -29,6 +31,7 @@ impl ObsidianEngine {
             executor: Executor::new(config.dry_run),
             narrator: Narrator::new(),
             dfhack: DfHackBridge::new(&config.dfhack_command, config.dry_run),
+            observer,
             config,
         })
     }
@@ -73,7 +76,7 @@ impl ObsidianEngine {
     }
 
     fn run_cycle(&mut self, cycle: u64) -> Result<()> {
-        let state = FortressState::mock(&self.config.fortress_name, cycle);
+        let state = self.observer.observe(cycle)?;
         let plan = self.planner.plan(&state);
         let intent = ActionIntent::from_directive(&plan.directive);
         let narration = self.narrator.describe(&state, &plan);

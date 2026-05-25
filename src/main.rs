@@ -6,6 +6,7 @@ mod df;
 mod dfhack;
 mod executor;
 mod narrator;
+mod observe;
 mod planner;
 
 use anyhow::Result;
