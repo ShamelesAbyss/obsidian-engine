@@ -10,6 +10,7 @@ pub struct EngineConfig {
     pub loop_delay_ms: u64,
     pub max_cycles: u64,
     pub chronicle_path: String,
+    pub dfhack_command: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -2,6 +2,7 @@ mod chronicle;
 mod config;
 mod core;
 mod df;
+mod dfhack;
 mod executor;
 mod narrator;
 mod planner;

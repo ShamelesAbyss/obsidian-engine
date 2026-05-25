@@ -4,5 +4,6 @@
   "dry_run": true,
   "loop_delay_ms": 1500,
   "max_cycles": 3,
-  "chronicle_path": "memory/chronicle.jsonl"
+  "chronicle_path": "memory/chronicle.jsonl",
+  "dfhack_command": "dfhack-run"
 }

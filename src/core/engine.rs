@@ -4,6 +4,7 @@ use std::{thread, time::Duration};
 use crate::chronicle::Chronicle;
 use crate::config::EngineConfig;
 use crate::df::state::FortressState;
+use crate::dfhack::DfHackBridge;
 use crate::executor::Executor;
 use crate::narrator::Narrator;
 use crate::planner::Planner;
@@ -14,6 +15,7 @@ pub struct ObsidianEngine {
     planner: Planner,
     executor: Executor,
     narrator: Narrator,
+    dfhack: DfHackBridge,
 }
 
 impl ObsidianEngine {
@@ -25,6 +27,7 @@ impl ObsidianEngine {
             planner: Planner::new(),
             executor: Executor::new(config.dry_run),
             narrator: Narrator::new(),
+            dfhack: DfHackBridge::new(&config.dfhack_command, config.dry_run),
             config,
         })
     }
@@ -35,8 +38,20 @@ impl ObsidianEngine {
         println!("Mode: {:?}", self.config.mode);
         println!("Dry run: {}", self.config.dry_run);
 
+        let dfhack_status = if self.dfhack.is_available() {
+            "available"
+        } else if self.config.dry_run {
+            "not detected, but allowed in dry-run mode"
+        } else {
+            "not detected"
+        };
+
+        println!("DFHack bridge: {dfhack_status}");
+
         self.chronicle
             .record("engine_boot", "Obsidian Engine awakened.")?;
+
+        self.chronicle.record("dfhack_status", dfhack_status)?;
 
         Ok(())
     }
@@ -60,6 +75,7 @@ impl ObsidianEngine {
         let state = FortressState::mock(&self.config.fortress_name, cycle);
         let plan = self.planner.plan(&state);
         let narration = self.narrator.describe(&state, &plan);
+        let probe = self.dfhack.run("ls")?;
 
         println!();
         println!("=== CYCLE {cycle} ===");
@@ -73,11 +89,16 @@ impl ObsidianEngine {
         println!("{plan:#?}");
 
         println!();
+        println!("DFHACK PROBE:");
+        println!("{}", probe.summary());
+
+        println!();
         println!("CHRONICLE:");
         println!("{narration}");
 
         self.executor.execute(&plan)?;
         self.chronicle.record("directive", &format!("{plan:?}"))?;
+        self.chronicle.record("dfhack_probe", &probe.summary())?;
         self.chronicle.record("narration", &narration)?;
 
         Ok(())
