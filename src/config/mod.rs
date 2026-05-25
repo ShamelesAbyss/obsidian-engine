@@ -6,6 +6,7 @@ use std::fs;
 pub struct EngineConfig {
     pub fortress_name: String,
     pub mode: EngineMode,
+    pub observer: ObserverMode,
     pub dry_run: bool,
     pub loop_delay_ms: u64,
     pub max_cycles: u64,
@@ -18,6 +19,13 @@ pub struct EngineConfig {
 pub enum EngineMode {
     Fortress,
     Adventure,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ObserverMode {
+    Mock,
+    Dfhack,
 }
 
 impl EngineConfig {

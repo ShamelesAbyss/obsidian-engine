@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::config::EngineConfig;
 use crate::df::state::FortressState;
+use crate::dfhack::DfHackBridge;
 
 #[derive(Debug, Clone)]
 pub struct ObservationSnapshot {
@@ -57,10 +58,51 @@ impl Observer for MockObserver {
     }
 }
 
-pub struct DfHackObserver;
+pub struct DfHackObserver {
+    fortress_name: String,
+    bridge: DfHackBridge,
+}
 
 impl DfHackObserver {
+    pub fn from_config(config: &EngineConfig) -> Self {
+        Self {
+            fortress_name: config.fortress_name.clone(),
+            bridge: DfHackBridge::new(&config.dfhack_command, true),
+        }
+    }
+
     pub fn source() -> ObservationSource {
         ObservationSource::DfHack
+    }
+}
+
+impl Observer for DfHackObserver {
+    fn observe(&mut self, cycle: u64) -> Result<ObservationSnapshot> {
+        let units = self.bridge.run("units")?;
+        let stocks = self.bridge.run("stocks show")?;
+        let jobs = self.bridge.run("job list")?;
+
+        let raw_events = vec![
+            format!("dfhack units probe: {}", units.summary()),
+            format!("dfhack stocks probe: {}", stocks.summary()),
+            format!("dfhack jobs probe: {}", jobs.summary()),
+        ];
+
+        let state = FortressState {
+            fortress_name: self.fortress_name.clone(),
+            cycle,
+            population: 0,
+            food: 0,
+            booze: 0,
+            threats: vec![],
+            recent_events: raw_events.clone(),
+        };
+
+        Ok(ObservationSnapshot {
+            cycle,
+            source: ObservationSource::DfHack,
+            raw_events,
+            state,
+        })
     }
 }

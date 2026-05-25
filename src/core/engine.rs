@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 
 use crate::actions::ActionIntent;
 use crate::chronicle::Chronicle;
-use crate::config::EngineConfig;
+use crate::config::{EngineConfig, ObserverMode};
 use crate::dfhack::DfHackBridge;
 use crate::executor::Executor;
 use crate::narrator::Narrator;
@@ -23,7 +23,11 @@ pub struct ObsidianEngine {
 impl ObsidianEngine {
     pub fn new(config_path: &str) -> Result<Self> {
         let config = EngineConfig::load(config_path)?;
-        let observer = Box::new(MockObserver::from_config(&config));
+
+        let observer: Box<dyn Observer> = match config.observer {
+            ObserverMode::Mock => Box::new(MockObserver::from_config(&config)),
+            ObserverMode::Dfhack => Box::new(DfHackObserver::from_config(&config)),
+        };
 
         Ok(Self {
             chronicle: Chronicle::new(&config.chronicle_path),
@@ -40,6 +44,7 @@ impl ObsidianEngine {
         println!("Obsidian Engine — Autonomous Fortress Intelligence");
         println!("Let the mountain think. Watch the fortress fall.");
         println!("Mode: {:?}", self.config.mode);
+        println!("Observer: {:?}", self.config.observer);
         println!("Dry run: {}", self.config.dry_run);
         println!("Future live observer source: {}", DfHackObserver::source().label());
 
