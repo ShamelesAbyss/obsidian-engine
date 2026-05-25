@@ -24,6 +24,13 @@ impl Planner {
     }
 
     pub fn plan(&self, state: &FortressState) -> Plan {
+        if !state.threats.is_empty() {
+            return Plan {
+                directive: Directive::PrepareDefense,
+                reason: "Hostile pressure detected near the fortress.".to_string(),
+            };
+        }
+
         if state.booze < state.population * 10 {
             return Plan {
                 directive: Directive::BrewAlcohol,
@@ -38,10 +45,17 @@ impl Planner {
             };
         }
 
-        if !state.threats.is_empty() {
+        if state.cycle == 2 {
             return Plan {
-                directive: Directive::PrepareDefense,
-                reason: "Hostile pressure detected near the fortress.".to_string(),
+                directive: Directive::ExpandIndustry,
+                reason: "Basic survival looks stable enough to begin workshop expansion.".to_string(),
+            };
+        }
+
+        if state.cycle > 3 {
+            return Plan {
+                directive: Directive::Observe,
+                reason: "No urgent fortress pressure detected; continue observation.".to_string(),
             };
         }
 

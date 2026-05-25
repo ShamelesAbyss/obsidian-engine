@@ -1,4 +1,5 @@
 mod chronicle;
+mod config;
 mod core;
 mod df;
 mod executor;
@@ -9,8 +10,8 @@ use anyhow::Result;
 use crate::core::engine::ObsidianEngine;
 
 fn main() -> Result<()> {
-    let mut engine = ObsidianEngine::new()?;
+    let mut engine = ObsidianEngine::new("obsidian.json")?;
     engine.boot()?;
-    engine.run_once()?;
+    engine.run()?;
     Ok(())
 }

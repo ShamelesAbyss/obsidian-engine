@@ -1,0 +1,8 @@
+{
+  "fortress_name": "The First Black Hall",
+  "mode": "fortress",
+  "dry_run": true,
+  "loop_delay_ms": 1500,
+  "max_cycles": 3,
+  "chronicle_path": "memory/chronicle.jsonl"
+}
