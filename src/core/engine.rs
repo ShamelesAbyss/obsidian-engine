@@ -7,7 +7,7 @@ use crate::config::EngineConfig;
 use crate::dfhack::DfHackBridge;
 use crate::executor::Executor;
 use crate::narrator::Narrator;
-use crate::observe::{MockObserver, Observer};
+use crate::observe::{DfHackObserver, MockObserver, Observer};
 use crate::planner::Planner;
 
 pub struct ObsidianEngine {
@@ -41,6 +41,7 @@ impl ObsidianEngine {
         println!("Let the mountain think. Watch the fortress fall.");
         println!("Mode: {:?}", self.config.mode);
         println!("Dry run: {}", self.config.dry_run);
+        println!("Future live observer source: {}", DfHackObserver::source().label());
 
         let dfhack_status = if self.dfhack.is_available() {
             "available"
@@ -76,13 +77,20 @@ impl ObsidianEngine {
     }
 
     fn run_cycle(&mut self, cycle: u64) -> Result<()> {
-        let state = self.observer.observe(cycle)?;
-        let plan = self.planner.plan(&state);
+        let snapshot = self.observer.observe(cycle)?;
+        let state = &snapshot.state;
+        let plan = self.planner.plan(state);
         let intent = ActionIntent::from_directive(&plan.directive);
-        let narration = self.narrator.describe(&state, &plan);
+        let narration = self.narrator.describe(state, &plan);
 
         println!();
         println!("=== CYCLE {cycle} ===");
+
+        println!();
+        println!("OBSERVATION SNAPSHOT:");
+        println!("Cycle: {}", snapshot.cycle);
+        println!("Source: {}", snapshot.source.label());
+        println!("Raw events: {:?}", snapshot.raw_events);
 
         println!();
         println!("FORTRESS STATE:");
@@ -101,6 +109,8 @@ impl ObsidianEngine {
         println!("{narration}");
 
         self.executor.execute(&intent, &self.dfhack)?;
+        self.chronicle
+            .record("observation", &format!("{snapshot:?}"))?;
         self.chronicle.record("directive", &format!("{plan:?}"))?;
         self.chronicle.record("action_intent", &format!("{intent:?}"))?;
         self.chronicle.record("narration", &narration)?;
